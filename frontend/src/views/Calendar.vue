@@ -97,6 +97,15 @@ const formattedSelectedDate = computed(() => {
           </div>
           <h1 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Calendario</h1>
         </div>
+
+        <!-- NUOVO: Pulsante Torna al Diario -->
+        <router-link 
+          to="/" 
+          class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold transition-all border border-slate-200/60 dark:border-slate-700"
+        >
+          <svg class="w-3.5 h-3.5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+          <span>Diario</span>
+        </router-link>
       </div>
     </header>
 

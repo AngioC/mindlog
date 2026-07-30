@@ -1,6 +1,6 @@
 # 📖 MindLog - Diario Personale & Mood Tracker
 
-MindLog è un'applicazione web moderna e reattiva stilizzata in formato Progressive Web App (PWA). Permette agli utenti di registrare i propri pensieri quotidiani, tracciare il proprio stato d'animo (Mood Tracker), organizzare le note tramite Tag personalizzati e consultare la cronologia in una vista a Calendario.
+MindLog è un'applicazione web moderna e reattiva stilizzata in formato Progressive Web App (PWA). Permette agli utenti di registrare i propri pensieri quotidiani, tracciare il proprio stato d'animo (Mood Tracker), organizzare le note tramite Tag personalizzati, filtrare e cercare tra i ricordi, analizzare le proprie statistiche sull'umore e consultare la cronologia in una vista a Calendario.
 
 ---
 
@@ -20,6 +20,7 @@ MindLog è un'applicazione web moderna e reattiva stilizzata in formato Progress
 * **Routing:** Vue Router (con Navigation Guard per rotte protette)
 * **HTTP Client:** Axios (con interceptors per la gestione automatica dei token JWT)
 * **CSS Framework:** Tailwind CSS v4 (con supporto Dark Mode nativo)
+* **Grafici:** Chart.js + `vue-chartjs`
 * **PWA Plugin:** `vite-plugin-pwa`
 
 ---
@@ -28,10 +29,10 @@ MindLog è un'applicazione web moderna e reattiva stilizzata in formato Progress
 
 ### Backend (`requirements.txt`)
 * `fastapi` - Web framework ad alte prestazioni.
-* `uvicorn` - Server ASGI per l'esecuzione di FastAPI.
+* `uvicorn[standard]` - Server ASGI per l'esecuzione di FastAPI.
 * `sqlalchemy` - ORM per la gestione delle tabelle del database.
 * `pydantic` - Validazione e serializzazione dei dati.
-* `python-jose` - Gestione e firma dei token JWT.
+* `python-jose[cryptography]` - Gestione e firma dei token JWT.
 * `passlib[bcrypt]` - Hashing sicuro delle password degli utenti.
 * `python-multipart` - Parsing delle richieste form-data per OAuth2.
 
@@ -40,8 +41,10 @@ MindLog è un'applicazione web moderna e reattiva stilizzata in formato Progress
 {
   "dependencies": {
     "axios": "^1.6.0",
+    "chart.js": "^4.4.0",
     "pinia": "^2.1.0",
     "vue": "^3.4.0",
+    "vue-chartjs": "^5.3.0",
     "vue-router": "^4.3.0"
   },
   "devDependencies": {
@@ -104,10 +107,11 @@ MindLog è un'applicazione web moderna e reattiva stilizzata in formato Progress
 
 ## 🌟 Funzionalità Principali
 
-- 🔐 **Autenticazione Sicura:** Login e registrazione con memorizzazione automatica del token JWT in Local Storage e gestione token scaduti.
-- 📝 **Editor in Inizio Pagina:** Box di scrittura espandibile con selezione della data nativa tramite pulsante personalizzato e opzione di titolo facoltativo.
-- 🏷️ **Gestione Tag:** Creazione di tag colorati dalla sezione Impostazioni e associazione dinamica ai pensieri.
-- 🎭 **Mood Tracker:** Selezione rapida dell'umore (da 1 a 5 con emoji visive).
-- 📅 **Vista Calendario:** Calendario mensile interattivo con indicatori visivi per i giorni in cui sono presenti delle annotazioni.
-- 🌙 **Dark Mode:** Supporto per il tema scuro attivabile e persistente nelle impostazioni.
-- 📱 **PWA Installabile:** Predisposta per l'installazione su dispositivi mobile (iOS/Android) o desktop.
+- 🔐 **Autenticazione Sicura:** Login e registrazione con memorizzazione automatica del token JWT in Local Storage e gestione dei token scaduti.
+- 📝 **Editor Interattivo & Modifica Inline:** Box di scrittura con selettore data a pillola personalizzato, titolo facoltativo, tag e mood tracker. Possibilità di modificare e aggiornare i pensieri creati precedentemente.
+- 🔍 **Ricerca & Filtri Avanzati:** Pannello a comparsa nella Dashboard per la ricerca testuale in tempo reale (in titoli e contenuto) e filtraggio combinato per Tag e punteggio di Umore.
+- 📊 **Statistiche & Mood Analytics:** Vista dedicata con grafici dell'andamento emotivo degli ultimi 30 giorni (Chart.js), riepilogo mensile delle note scritte, umore dominante e media dell'umore.
+- 📅 **Vista Calendario:** Calendario mensile interattivo per la navigazione rapida tra i giorni e consultazione rapida dei pensieri passati.
+- 🏷️ **Gestione Tag:** Sezione iOS-style per la creazione e cancellazione di tag con codice colore personalizzato.
+- 🌙 **Dark Mode:** Supporto nativo per il tema scuro attivabile dalle impostazioni e memorizzato nel localStorage.
+- 📱 **PWA Installabile:** Configurazione Progressive Web App completa di Web Manifest per l'installazione su mobile (iOS/Android) e desktop.
