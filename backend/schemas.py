@@ -64,5 +64,6 @@ class EntryResponse(BaseModel):
 class EntryUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
-    mood_score: Optional[int] = None
     entry_date: Optional[date] = None
+    mood_score: Optional[int] = None
+    tag_ids: Optional[List[int]] = None

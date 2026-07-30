@@ -68,18 +68,50 @@ def read_single_entry(entry_id: int, db: Session = Depends(get_db), current_user
 
 # 4. UPDATE (Modifica)
 @router.put("/{entry_id}", response_model=schemas.EntryResponse)
-def update_entry(entry_id: int, entry_update: schemas.EntryUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    db_entry = db.query(models.Entry).filter(models.Entry.id == entry_id, models.Entry.user_id == current_user.id).first()
+def update_entry(
+    entry_id: int, 
+    entry_update: schemas.EntryUpdate, 
+    db: Session = Depends(get_db), 
+    current_user: models.User = Depends(get_current_user)
+):
+    db_entry = db.query(models.Entry).filter(
+        models.Entry.id == entry_id, 
+        models.Entry.user_id == current_user.id
+    ).first()
+    
     if not db_entry:
         raise HTTPException(status_code=404, detail="Pensiero non trovato")
     
-    # Aggiorna solo i campi inviati (exclude_unset=True evita di sovrascrivere con None i campi non forniti)
+    # 1. Estraiamo i dati escludendo i campi non inviati ed eventualmente tag_ids
     update_data = entry_update.model_dump(exclude_unset=True)
+    
+    # 2. Gestiamo l'aggiornamento dei tag se tag_ids è presente nella richiesta
+    if "tag_ids" in update_data:
+        tag_ids = update_data.pop("tag_ids") # Rimuoviamo tag_ids dal dizionario di aggiornamento diretto
+        
+        if tag_ids is not None:
+            # Cerca nel DB tutti i tag che corrispondono agli ID forniti E appartengono all'utente
+            tags = db.query(models.Tag).filter(
+                models.Tag.id.in_(tag_ids),
+                models.Tag.user_id == current_user.id
+            ).all()
+            
+            if len(tags) != len(set(tag_ids)):
+                raise HTTPException(status_code=400, detail="Uno o più tag non sono validi")
+                
+            # Assegniamo la nuova lista di tag alla relazione SQLAlchemy
+            db_entry.tags = tags
+        else:
+            # Se è stato inviato None o una lista vuota, svuotiamo i tag
+            db_entry.tags = []
+
+    # 3. Aggiorniamo i restanti campi scalari (title, content, entry_date, mood_score)
     for key, value in update_data.items():
         setattr(db_entry, key, value)
         
     db.commit()
     db.refresh(db_entry)
+    
     return db_entry
 
 # 5. DELETE (Elimina)
