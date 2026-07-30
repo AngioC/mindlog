@@ -1,6 +1,6 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *)); /* <- Aggiungi questa riga! */
 
-/* Configurazione del tema direttamente in CSS! */
 @theme {
   --color-brand: #4F46E5;
 }

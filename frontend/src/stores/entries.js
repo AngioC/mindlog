@@ -30,6 +30,32 @@ export const useEntriesStore = defineStore('entries', {
         console.error("Errore nella creazione del pensiero:", error);
         throw error;
       }
+    },
+    // Elimina pensiero
+    async deleteEntry(entryId) {
+      try {
+        await api.delete(`/entries/${entryId}`);
+        // Rimuoviamo il pensiero dalla lista locale senza ricaricare la pagina
+        this.entries = this.entries.filter(entry => entry.id !== entryId);
+      } catch (error) {
+        console.error("Errore durante l'eliminazione:", error);
+        throw error;
+      }
+    },
+    // Aggiorna pensiero
+    async updateEntry(entryId, entryData) {
+      try {
+        const response = await api.put(`/entries/${entryId}`, entryData);
+        // Troviamo il post nella lista e lo aggiorniamo con i nuovi dati
+        const index = this.entries.findIndex(e => e.id === entryId);
+        if (index !== -1) {
+          this.entries[index] = response.data;
+        }
+      } catch (error) {
+        console.error("Errore durante l'aggiornamento:", error);
+        throw error;
+      }
     }
+
   }
 });
