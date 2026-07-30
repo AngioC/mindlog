@@ -17,11 +17,37 @@ router = APIRouter(
 
 # 1. CREATE (Crea)
 @router.post("/", response_model=schemas.EntryResponse, status_code=status.HTTP_201_CREATED)
-def create_entry(entry: schemas.EntryCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    new_entry = models.Entry(**entry.model_dump(), user_id=current_user.id)
+def create_entry(
+    entry: schemas.EntryCreate, 
+    db: Session = Depends(get_db), 
+    current_user: models.User = Depends(get_current_user)
+):
+    # 1. Rimuoviamo i 'tag_ids' dal dizionario dei dati base
+    entry_data = entry.model_dump(exclude={"tag_ids"})
+    
+    # 2. Creiamo il record base del pensiero
+    new_entry = models.Entry(**entry_data, user_id=current_user.id)
+    
+    # 3. Se l'utente ha passato dei tag, li cerchiamo e li colleghiamo
+    if entry.tag_ids:
+        # Cerca nel DB tutti i tag che corrispondono agli ID forniti E appartengono all'utente
+        tags = db.query(models.Tag).filter(
+            models.Tag.id.in_(entry.tag_ids),
+            models.Tag.user_id == current_user.id
+        ).all()
+        
+        # Controllo di sicurezza: se il numero dei tag trovati non coincide con gli ID inviati,
+        # significa che l'utente ha inviato un ID inesistente o appartenente a un altro utente.
+        if len(tags) != len(set(entry.tag_ids)):
+            raise HTTPException(status_code=400, detail="Uno o più tag non sono validi")
+            
+        # Collega i tag al pensiero (SQLAlchemy popolerà la tabella 'entry_tags' per noi!)
+        new_entry.tags = tags
+
     db.add(new_entry)
     db.commit()
     db.refresh(new_entry)
+    
     return new_entry
 
 # 2. READ ALL (Leggi lista filtrata)

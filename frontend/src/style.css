@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+/* Configurazione del tema direttamente in CSS! */
+@theme {
+  --color-brand: #4F46E5;
+}
+
+body {
+  background-color: var(--color-gray-50);
+  color: var(--color-gray-900);
+}
