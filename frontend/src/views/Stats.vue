@@ -1,5 +1,6 @@
 <script setup>
-import { computed, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import api from '../api/axios';
 import { useEntriesStore } from '../stores/entries';
 import { Line } from 'vue-chartjs';
 import {
@@ -27,6 +28,11 @@ ChartJS.register(
 
 const entriesStore = useEntriesStore();
 
+// STATO AI SUMMARY
+const aiSummary = ref(null);
+const isLoadingAi = ref(false);
+const aiError = ref('');
+
 const moods = [
   { score: 1, emoji: '😢', label: 'Triste' },
   { score: 2, emoji: '😕', label: 'Così così' },
@@ -40,6 +46,22 @@ onMounted(() => {
     entriesStore.fetchEntries();
   }
 });
+
+// --- FUNZIONE PER CHIAMARE L'ENDPOINT AI ---
+const fetchAiSummary = async () => {
+  try {
+    isLoadingAi.value = true;
+    aiError.value = '';
+    const response = await api.get('/stats/ai-summary');
+    
+    // Se il backend risponde con una stringa JSON, facciamo il parse
+    aiSummary.value = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
+  } catch (error) {
+    aiError.value = error.response?.data?.detail || "Errore durante la generazione del resoconto AI.";
+  } finally {
+    isLoadingAi.value = false;
+  }
+};
 
 // --- ELABORAZIONE DATI PER STATISTICHE ---
 
@@ -185,6 +207,70 @@ const dominantMood = computed(() => {
           </p>
         </div>
 
+      </section>
+
+      <!-- CARD AI MONTHLY SUMMARY -->
+      <section class="bg-gradient-to-br from-indigo-900 to-slate-900 text-white p-6 rounded-3xl shadow-lg border border-indigo-500/20 relative overflow-hidden">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <span class="text-2xl">✨</span>
+            <h2 class="text-base font-bold tracking-tight">Insight Intelligente</h2>
+          </div>
+          
+          <button 
+            @click="fetchAiSummary" 
+            :disabled="isLoadingAi"
+            class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-xs font-semibold rounded-full shadow-md transition-all flex items-center gap-2"
+          >
+            <span v-if="isLoadingAi" class="animate-spin">⏳</span>
+            <span>{{ isLoadingAi ? 'Elaborazione...' : (aiSummary ? 'Aggiorna' : 'Genera AI') }}</span>
+          </button>
+        </div>
+
+        <!-- Messaggio di errore se presente -->
+        <p v-if="aiError" class="text-red-300 text-xs mb-3 bg-red-950/50 p-3 rounded-xl border border-red-800/50">
+          {{ aiError }}
+        </p>
+
+        <!-- Stato iniziale vuoto -->
+        <p v-if="!aiSummary && !isLoadingAi && !aiError" class="text-slate-300 text-xs leading-relaxed">
+          L'AI analizzerà i tuoi pensieri del mese tramite Groq per rilevare momenti chiave, temi ricorrenti e offrirti una riflessione personalizzata.
+        </p>
+
+        <!-- Risultati dell'AI -->
+        <div v-if="aiSummary" class="space-y-4 text-sm mt-4 animate-fade-in pt-3 border-t border-indigo-500/30">
+          
+          <!-- Momenti Chiave -->
+          <div>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-300 mb-2">🌟 Momenti Chiave</h3>
+            <ul class="list-disc list-inside space-y-1 text-slate-200 text-xs">
+              <li v-for="(item, idx) in aiSummary.highlights" :key="idx">{{ item }}</li>
+            </ul>
+          </div>
+
+          <!-- Temi Ricorrenti -->
+          <div>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-300 mb-2">🔄 Temi Ricorrenti</h3>
+            <div class="flex flex-wrap gap-1.5">
+              <span 
+                v-for="(theme, idx) in aiSummary.recurring_themes" 
+                :key="idx"
+                class="bg-indigo-950/80 border border-indigo-500/40 text-indigo-200 text-[0.7rem] px-2.5 py-1 rounded-lg"
+              >
+                # {{ theme }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Riflessione -->
+          <div class="bg-indigo-950/60 p-3.5 rounded-2xl border border-indigo-500/30">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-300 mb-1">💡 Riflessione per te</h3>
+            <p class="text-slate-200 text-xs leading-relaxed italic">
+              "{{ aiSummary.advice }}"
+            </p>
+          </div>
+
+        </div>
       </section>
 
       <!-- GRAFICO ANDAMENTO UMORE -->
