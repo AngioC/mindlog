@@ -1,19 +1,20 @@
 import os
-from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
 
-# Carica le variabili dal file .env
-load_dotenv()
+# Legge l'URL dalle variabili d'ambiente.
+# Sostituisci la stringa di default con la tua connessione Postgres locale!
+SQLALCHEMY_DATABASE_URL = os.getenv(
+    "DATABASE_URL", 
+    "postgresql://postgres:developer05@localhost:5432/mindlog"
+)
 
-# Prendi l'URL in modo sicuro (se non c'è, darà errore invece di esporre dati)
-DATABASE_URL = os.environ.get("DATABASE_URL")
+# Niente check_same_thread, Postgres gestisce le connessioni in modo nativo
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
-# Crea il motore di connessione
-engine = create_engine(DATABASE_URL)
-
-# Questa "fabbrica" creerà le sessioni per dialogare col DB in ogni rotta API
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
 
 def get_db():
     db = SessionLocal()

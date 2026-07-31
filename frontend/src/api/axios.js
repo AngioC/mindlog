@@ -2,7 +2,7 @@ import axios from 'axios';
 import router from '../router'; // Importiamo il router per poter reindirizzare
 
 const api = axios.create({
-  baseURL: 'http://127.0.0.1:8000',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
 });
 
 // 1. Interceptor per le RICHIESTE (Aggiunge il token)
