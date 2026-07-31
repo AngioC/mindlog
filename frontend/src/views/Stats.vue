@@ -140,7 +140,9 @@ const heatmapWeeks = computed(() => {
 
 const getHeatmapColor = (score, isEmpty) => {
   if (score === null) return 'bg-transparent';
-  if (isEmpty) return 'bg-slate-100 dark:bg-slate-800';
+  
+  // MODIFICA QUI: Sostituito dark:bg-slate-800 con dark:bg-slate-700
+  if (isEmpty) return 'bg-slate-100 dark:bg-slate-700';
   
   const colors = {
     1: 'bg-red-400 dark:bg-red-500',
