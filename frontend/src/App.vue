@@ -12,9 +12,9 @@ const route = useRoute();
   <!-- Bottom Navigation Bar -->
   <nav 
     v-if="authStore.isAuthenticated && route.name !== 'Login' && route.name !== 'Register'" 
-    class="fixed bottom-0 inset-x-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.02)] z-50 transition-colors duration-300"
+    class="fixed bottom-0 inset-x-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_20px_rgba(0,0,0,0.02)] z-50 transition-colors duration-300"
   >
-    <div class="max-w-md mx-auto flex justify-around items-center h-16">
+    <div class="max-w-md mx-auto flex justify-around items-center h-16 pt-1">
       
       <!-- Bottone Impostazioni -->
       <router-link 
