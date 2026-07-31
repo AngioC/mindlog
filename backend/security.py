@@ -1,9 +1,10 @@
+import os
 import bcrypt
 import jwt
 from datetime import datetime, timedelta, timezone
 
 # In produzione, queste chiavi andranno nel file .env!
-SECRET_KEY = "super_segreto_mindlog_cambiami_poi"
+SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7 # 7 giorni
 
