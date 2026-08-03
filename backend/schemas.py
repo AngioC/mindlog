@@ -40,6 +40,22 @@ class TagResponse(TagBase):
     class Config:
         from_attributes = True
 
+class HabitBase(BaseModel):
+    name: str
+    icon: Optional[str] = None
+
+class HabitCreate(HabitBase):
+    pass
+
+class HabitResponse(HabitBase):
+    id: int
+    class Config:
+        from_attributes = True
+
+class HabitUpdate(BaseModel):
+    name: Optional[str] = None
+    icon: Optional[str] = None
+
 # Dati inviati dall'utente per creare un pensiero
 class EntryCreate(BaseModel):
     title: Optional[str] = None
@@ -47,6 +63,7 @@ class EntryCreate(BaseModel):
     mood_score: Optional[int] = None
     entry_date: date
     tag_ids: Optional[List[int]] = []
+    habit_ids: Optional[List[int]] = []
 
 # Dati restituiti dal backend
 class EntryResponse(BaseModel):
@@ -57,7 +74,8 @@ class EntryResponse(BaseModel):
     entry_date: date
     created_at: datetime
     tags: List[TagResponse] = [] 
-    
+    habits: List[HabitResponse] = []
+
     class Config:
         from_attributes = True
 
@@ -67,7 +85,9 @@ class EntryUpdate(BaseModel):
     entry_date: Optional[date] = None
     mood_score: Optional[int] = None
     tag_ids: Optional[List[int]] = None
+    habit_ids: Optional[List[int]] = None
 
 class PasswordChange(BaseModel):
     old_password: str
     new_password: str
+

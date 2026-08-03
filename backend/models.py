@@ -14,6 +14,13 @@ entry_tags = Table(
     Column("tag_id", ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True),
 )
 
+entry_habits = Table(
+    "entry_habits",
+    Base.metadata,
+    Column("entry_id", ForeignKey("entries.id", ondelete="CASCADE"), primary_key=True),
+    Column("habit_id", ForeignKey("habits.id", ondelete="CASCADE"), primary_key=True),
+)
+
 class User(Base):
     __tablename__ = "users"
 
@@ -25,6 +32,7 @@ class User(Base):
     # Relazioni
     entries: Mapped[List["Entry"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     tags: Mapped[List["Tag"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    habits: Mapped[List["Habit"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 class Entry(Base):
     __tablename__ = "entries"
@@ -42,6 +50,7 @@ class Entry(Base):
     # Relazioni
     user: Mapped["User"] = relationship(back_populates="entries")
     tags: Mapped[List["Tag"]] = relationship(secondary=entry_tags, back_populates="entries")
+    habits: Mapped[List["Habit"]] = relationship(secondary=entry_habits, back_populates="entries")
 
 class Tag(Base):
     __tablename__ = "tags"
@@ -54,3 +63,14 @@ class Tag(Base):
     # Relazioni
     user: Mapped["User"] = relationship(back_populates="tags")
     entries: Mapped[List["Entry"]] = relationship(secondary=entry_tags, back_populates="tags")
+
+class Habit(Base):
+    __tablename__ = "habits"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(50))
+    icon: Mapped[Optional[str]] = mapped_column(String(10)) # Es: "🏃‍♂️"
+
+    user: Mapped["User"] = relationship(back_populates="habits")
+    entries: Mapped[List["Entry"]] = relationship(secondary=entry_habits, back_populates="habits")

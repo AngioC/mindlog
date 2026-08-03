@@ -4,10 +4,12 @@ import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { useEntriesStore } from '../stores/entries';
 import { useTagsStore } from '../stores/tags';
+import { useHabitsStore } from '../stores/habits';
 
 const authStore = useAuthStore();
 const entriesStore = useEntriesStore();
 const tagsStore = useTagsStore();
+const habitsStore = useHabitsStore();
 const router = useRouter();
 
 // STATO CREAZIONE
@@ -17,6 +19,7 @@ const newEntry = ref({
   content: '',
   entry_date: new Date().toISOString().split('T')[0],
   tag_ids: [],
+  habit_ids: [],
   mood_score: null 
 });
 
@@ -70,7 +73,8 @@ const handleTouchEnd = async () => {
 
     await Promise.all([
       entriesStore.fetchEntries(),
-      tagsStore.fetchTags()
+      tagsStore.fetchTags(),
+      habitsStore.fetchHabits()
     ]);
 
     setTimeout(() => {
@@ -87,6 +91,7 @@ const handleTouchEnd = async () => {
 onMounted(() => {
   entriesStore.fetchEntries();
   tagsStore.fetchTags();
+  habitsStore.fetchHabits();
   
   window.addEventListener('touchstart', handleTouchStart, { passive: true });
   window.addEventListener('touchmove', handleTouchMove, { passive: true });
@@ -115,10 +120,27 @@ const toggleTag = (tagId, isEdit = false) => {
   }
 };
 
+const toggleHabit = (habitId, isEdit = false) => {
+  const target = isEdit ? editEntryData : newEntry;
+  const index = target.value.habit_ids.indexOf(habitId);
+  if (index === -1) {
+    target.value.habit_ids.push(habitId);
+  } else {
+    target.value.habit_ids.splice(index, 1);
+  }
+};
+
 const submitEntry = async () => {
   if (!newEntry.value.content) return;
   await entriesStore.createEntry(newEntry.value);
-  newEntry.value = { title: '', content: '', entry_date: new Date().toISOString().split('T')[0], tag_ids: [], mood_score: null };
+  newEntry.value = { 
+    title: '', 
+    content: '', 
+    entry_date: new Date().toISOString().split('T')[0], 
+    tag_ids: [], 
+    habit_ids: [],
+    mood_score: null 
+  };
   isComposing.value = false;
 };
 
@@ -129,7 +151,8 @@ const startEditing = (entry) => {
     content: entry.content,
     entry_date: entry.entry_date,
     mood_score: entry.mood_score,
-    tag_ids: entry.tags ? entry.tags.map(t => t.id) : []
+    tag_ids: entry.tags ? entry.tags.map(t => t.id) : [],
+    habit_ids: entry.habits ? entry.habits.map(h => h.id) : []
   };
 };
 
@@ -232,7 +255,7 @@ const getMoodEmoji = (score) => {
         transition: pullDistance === 0 || isRefreshing ? 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none'
       }"
     >
-      <!-- INDICATORE PULL-TO-REFRESH (Nascosto sotto l'header, si svela scorrendo) -->
+      <!-- INDICATORE PULL-TO-REFRESH -->
       <div class="absolute left-0 right-0 -top-16 flex items-center justify-center h-16 w-full pointer-events-none z-0">
         <div 
           class="w-10 h-10 bg-white dark:bg-slate-800 rounded-full shadow-md border border-slate-100 dark:border-slate-700 flex items-center justify-center transition-opacity duration-200"
@@ -260,7 +283,7 @@ const getMoodEmoji = (score) => {
         </div>
       </div>
 
-      <!-- CORPO PRINCIPALE (Scorre verso il basso) -->
+      <!-- CORPO PRINCIPALE -->
       <main class="max-w-3xl mx-auto px-4 mt-8 relative z-10">
         
         <!-- COMPOSER (BOX DI SCRITTURA) -->
@@ -299,20 +322,38 @@ const getMoodEmoji = (score) => {
 
             <div v-show="isComposing" class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 animate-fade-in space-y-4">
               
-              <div v-if="tagsStore.tags.length > 0" class="flex flex-wrap gap-2">
-                <button
-                  v-for="tag in tagsStore.tags" :key="tag.id" type="button" @click="toggleTag(tag.id, false)"
-                  class="text-xs px-3 py-1.5 rounded-lg font-medium transition-all duration-200 border"
-                  :class="newEntry.tag_ids.includes(tag.id) ? 'shadow-sm' : 'bg-transparent opacity-60 hover:opacity-100'"
-                  :style="newEntry.tag_ids.includes(tag.id) ? { backgroundColor: tag.color, borderColor: tag.color, color: '#fff' } : { color: tag.color, borderColor: tag.color }"
-                >
-                  {{ tag.name }}
-                </button>
+              <!-- Tag / Categorie nel composer -->
+              <div v-if="tagsStore.tags.length > 0" class="flex flex-col gap-1.5">
+                <span class="text-[0.65rem] font-bold uppercase text-slate-400 tracking-wider">Categorie</span>
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    v-for="tag in tagsStore.tags" :key="tag.id" type="button" @click="toggleTag(tag.id, false)"
+                    class="text-xs px-3 py-1.5 rounded-lg font-medium transition-all duration-200 border"
+                    :class="newEntry.tag_ids.includes(tag.id) ? 'shadow-sm' : 'bg-transparent opacity-60 hover:opacity-100'"
+                    :style="newEntry.tag_ids.includes(tag.id) ? { backgroundColor: tag.color, borderColor: tag.color, color: '#fff' } : { color: tag.color, borderColor: tag.color }"
+                  >
+                    {{ tag.name }}
+                  </button>
+                </div>
+              </div>
+              
+              <!-- Habit Tracker nel composer -->
+              <div v-if="habitsStore.habits.length > 0" class="flex flex-col gap-1.5 mt-2">
+                <span class="text-[0.65rem] font-bold uppercase text-slate-400 tracking-wider">Abitudini</span>
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    v-for="habit in habitsStore.habits" :key="habit.id" type="button" @click="toggleHabit(habit.id, false)"
+                    class="text-xs px-3 py-1.5 rounded-lg font-medium transition-all duration-200 border flex items-center gap-1 bg-slate-50 dark:bg-slate-800"
+                    :class="newEntry.habit_ids.includes(habit.id) ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700' : 'border-slate-200 dark:border-slate-700 text-slate-500 opacity-60 hover:opacity-100'"
+                  >
+                    <span>{{ habit.icon }}</span> {{ habit.name }}
+                  </button>
+                </div>
               </div>
 
-              <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mt-2">
                 <div class="flex items-center gap-3">
-                  <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Umore</span>
+                  <span class="text-[0.65rem] font-bold uppercase text-slate-400 tracking-wider">Umore</span>
                   <div class="flex gap-1.5 bg-slate-50 dark:bg-slate-700 p-1.5 rounded-2xl border border-slate-100 dark:border-slate-600">
                     <button
                       v-for="mood in moods" :key="mood.score" type="button"
@@ -478,10 +519,30 @@ const getMoodEmoji = (score) => {
               
               <p class="text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap text-[1.05rem]">{{ entry.content }}</p>
 
-              <div v-if="entry.tags && entry.tags.length > 0" class="mt-5 flex flex-wrap gap-2">
-                <span v-for="tag in entry.tags" :key="tag.id" class="text-xs px-2.5 py-1 rounded-md font-medium text-white shadow-sm" :style="{ backgroundColor: tag.color }">
-                  {{ tag.name }}
-                </span>
+              <!-- Metadati: Tag e Abitudini -->
+              <div class="mt-4 flex flex-col gap-2">
+                <!-- Categorie -->
+                <div v-if="entry.tags && entry.tags.length > 0" class="flex flex-wrap gap-1.5 items-center">
+                  <span class="text-[0.6rem] font-bold uppercase text-slate-400 mr-1">Categorie:</span>
+                  <span 
+                    v-for="tag in entry.tags" :key="tag.id" 
+                    class="text-[0.65rem] uppercase tracking-wider px-2 py-0.5 rounded text-white shadow-sm" 
+                    :style="{ backgroundColor: tag.color }"
+                  >
+                    {{ tag.name }}
+                  </span>
+                </div>
+                
+                <!-- Abitudini -->
+                <div v-if="entry.habits && entry.habits.length > 0" class="flex flex-wrap gap-1.5 items-center">
+                  <span class="text-[0.6rem] font-bold uppercase text-slate-400 mr-1">Abitudini:</span>
+                  <span 
+                    v-for="habit in entry.habits" :key="habit.id" 
+                    class="text-[0.65rem] px-2 py-0.5 rounded font-medium bg-slate-100 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300 flex items-center gap-1 shadow-sm"
+                  >
+                    <span>{{ habit.icon }}</span> {{ habit.name }}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -498,13 +559,29 @@ const getMoodEmoji = (score) => {
                 <input v-model="editEntryData.title" type="text" placeholder="Titolo (opzionale)" class="w-full mb-3 text-2xl font-bold bg-transparent border-0 focus:ring-0 p-0 text-slate-900 dark:text-white placeholder-slate-300 dark:placeholder-slate-600">
                 <textarea v-model="editEntryData.content" required rows="5" class="w-full bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-brand p-4 resize-none text-[1.1rem] leading-relaxed text-slate-700 dark:text-slate-200"></textarea>
 
-                <div v-if="tagsStore.tags.length > 0" class="mt-4 flex flex-wrap gap-2">
-                  <button v-for="tag in tagsStore.tags" :key="tag.id" type="button" @click="toggleTag(tag.id, true)"
-                    class="text-xs px-3 py-1.5 rounded-lg font-medium transition-all duration-200 border"
-                    :class="editEntryData.tag_ids.includes(tag.id) ? 'shadow-sm' : 'bg-transparent opacity-60'"
-                    :style="editEntryData.tag_ids.includes(tag.id) ? { backgroundColor: tag.color, borderColor: tag.color, color: '#fff' } : { color: tag.color, borderColor: tag.color }">
-                    {{ tag.name }}
-                  </button>
+                <div v-if="tagsStore.tags.length > 0" class="flex flex-col gap-1.5 mt-4">
+                  <span class="text-[0.65rem] font-bold uppercase text-slate-400 tracking-wider">Categorie</span>
+                  <div class="flex flex-wrap gap-2">
+                    <button v-for="tag in tagsStore.tags" :key="tag.id" type="button" @click="toggleTag(tag.id, true)"
+                      class="text-xs px-3 py-1.5 rounded-lg font-medium transition-all duration-200 border"
+                      :class="editEntryData.tag_ids.includes(tag.id) ? 'shadow-sm' : 'bg-transparent opacity-60'"
+                      :style="editEntryData.tag_ids.includes(tag.id) ? { backgroundColor: tag.color, borderColor: tag.color, color: '#fff' } : { color: tag.color, borderColor: tag.color }">
+                      {{ tag.name }}
+                    </button>
+                  </div>
+                </div>
+                
+                <div v-if="habitsStore.habits.length > 0" class="flex flex-col gap-1.5 mt-3">
+                  <span class="text-[0.65rem] font-bold uppercase text-slate-400 tracking-wider">Abitudini</span>
+                  <div class="flex flex-wrap gap-2">
+                    <button
+                      v-for="habit in habitsStore.habits" :key="habit.id" type="button" @click="toggleHabit(habit.id, true)"
+                      class="text-xs px-3 py-1.5 rounded-lg font-medium transition-all duration-200 border flex items-center gap-1 bg-slate-50 dark:bg-slate-800"
+                      :class="editEntryData.habit_ids.includes(habit.id) ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700' : 'border-slate-200 dark:border-slate-700 text-slate-500 opacity-60 hover:opacity-100'"
+                    >
+                      <span>{{ habit.icon }}</span> {{ habit.name }}
+                    </button>
+                  </div>
                 </div>
 
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mt-6">
