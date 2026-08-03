@@ -67,3 +67,7 @@ class EntryUpdate(BaseModel):
     entry_date: Optional[date] = None
     mood_score: Optional[int] = None
     tag_ids: Optional[List[int]] = None
+
+class PasswordChange(BaseModel):
+    old_password: str
+    new_password: str

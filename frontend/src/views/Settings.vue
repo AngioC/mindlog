@@ -3,12 +3,13 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useTagsStore } from '../stores/tags';
 import { useAuthStore } from '../stores/auth';
+import api from '../api/axios'; // Ci servirà per la chiamata di cambio password
 
 const tagsStore = useTagsStore();
 const authStore = useAuthStore();
 const router = useRouter();
 
-// Navigazione interna stile iOS ('main', 'tags', 'app')
+// Navigazione interna stile iOS ('main', 'tags', 'app', 'profile')
 const currentView = ref('main');
 
 // Stato Tag
@@ -18,11 +19,32 @@ const errorMsg = ref('');
 // Stato Tema (Dark Mode)
 const isDarkMode = ref(false);
 
+// Stato Cambio Password
+const passData = ref({ oldPassword: '', newPassword: '', confirmPassword: '' });
+const profileMsg = ref('');
+const profileError = ref('');
+const isChangingPassword = ref(false);
+
 onMounted(() => {
   tagsStore.fetchTags();
+  loadUserProfile();
   // Controlla se la dark mode è attiva sul tag HTML
   isDarkMode.value = document.documentElement.classList.contains('dark');
 });
+
+// --- FUNZIONE PER RECUPERARE IL PROFILO ---
+const loadUserProfile = async () => {
+  // Se non abbiamo l'email nello store, la chiediamo al backend
+  if (!authStore.user?.email) {
+    try {
+      const response = await api.get('/me');
+      // Salviamo l'intero utente (id, email, created_at) nello store
+      authStore.user = response.data; 
+    } catch (error) {
+      console.error("Impossibile recuperare i dati dell'utente:", error);
+    }
+  }
+};
 
 // -- LOGICA TEMA --
 const toggleTheme = () => {
@@ -61,17 +83,47 @@ const handleDeleteTag = async (id) => {
     await tagsStore.deleteTag(id);
   }
 };
+
+// -- LOGICA CAMBIO PASSWORD --
+const handleChangePassword = async () => {
+  profileError.value = '';
+  profileMsg.value = '';
+
+  if (passData.value.newPassword !== passData.value.confirmPassword) {
+    profileError.value = "Le nuove password non coincidono.";
+    return;
+  }
+
+  if (passData.value.newPassword.length < 6) {
+    profileError.value = "La nuova password deve avere almeno 6 caratteri.";
+    return;
+  }
+
+  try {
+    isChangingPassword.value = true;
+    await api.put('/change-password', {
+      old_password: passData.value.oldPassword,
+      new_password: passData.value.newPassword
+    });
+    
+    profileMsg.value = "Password aggiornata con successo!";
+    passData.value = { oldPassword: '', newPassword: '', confirmPassword: '' };
+  } catch (error) {
+    profileError.value = error.response?.data?.detail || "Errore durante il cambio password.";
+  } finally {
+    isChangingPassword.value = false;
+  }
+};
 </script>
 
 <template>
-  <!-- Abbiamo aggiunto 'dark:bg-slate-900' per far cambiare il colore di sfondo globale -->
   <div class="min-h-screen bg-slate-50 dark:bg-slate-900 font-sans text-slate-800 dark:text-slate-100 pb-24 transition-colors duration-300">
     
     <!-- HEADER -->
     <header class="sticky top-0 z-50 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border-b border-slate-200/50 dark:border-slate-800 transition-colors duration-300">
       <div class="max-w-md mx-auto px-4 py-4 flex items-center justify-between">
         
-        <!-- Bottone Indietro (Appare solo se non siamo nella home) -->
+        <!-- Bottone Indietro -->
         <button 
           v-if="currentView !== 'main'" 
           @click="currentView = 'main'"
@@ -80,13 +132,13 @@ const handleDeleteTag = async (id) => {
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"></path></svg>
           Indietro
         </button>
-        <div v-else class="w-16"></div> <!-- Spaziatore per centrare il titolo -->
+        <div v-else class="w-16"></div> 
         
         <h1 class="text-[1.15rem] font-semibold tracking-tight text-slate-900 dark:text-white">
-          {{ currentView === 'main' ? 'Impostazioni' : (currentView === 'tags' ? 'Gestione Tag' : 'App') }}
+          {{ currentView === 'main' ? 'Impostazioni' : (currentView === 'tags' ? 'Gestione Tag' : (currentView === 'profile' ? 'Profilo' : 'App')) }}
         </h1>
         
-        <div class="w-16"></div> <!-- Spaziatore per centrare il titolo -->
+        <div class="w-16"></div>
       </div>
     </header>
 
@@ -97,10 +149,21 @@ const handleDeleteTag = async (id) => {
       <!-- ========================================== -->
       <div v-if="currentView === 'main'" class="space-y-6 animate-fade-in">
         
-        <!-- Blocco 1: Personalizzazione -->
+        <!-- Blocco 1: Account -->
         <div>
-          <h2 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-4 mb-2">Personalizzazione</h2>
+          <h2 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-4 mb-2">Account</h2>
           <div class="bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-sm border border-slate-100 dark:border-slate-700">
+            <!-- Riga: Profilo -->
+            <button @click="currentView = 'profile'" class="w-full flex items-center justify-between p-4 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/50 active:bg-slate-100 dark:active:bg-slate-700 transition-colors border-b border-slate-100 dark:border-slate-700">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 flex items-center justify-center text-lg">👤</div>
+                <div class="flex flex-col items-start">
+                  <span class="font-medium">Profilo Utente</span>
+                </div>
+              </div>
+              <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+            </button>
+            
             <!-- Riga: Gestione Tag -->
             <button @click="currentView = 'tags'" class="w-full flex items-center justify-between p-4 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/50 active:bg-slate-100 dark:active:bg-slate-700 transition-colors">
               <div class="flex items-center gap-3">
@@ -120,7 +183,7 @@ const handleDeleteTag = async (id) => {
             <button @click="currentView = 'app'" class="w-full flex items-center justify-between p-4 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/50 active:bg-slate-100 dark:active:bg-slate-700 transition-colors border-b border-slate-100 dark:border-slate-700">
               <div class="flex items-center gap-3">
                 <div class="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center text-lg">⚙️</div>
-                <span class="font-medium">Impostazioni App</span>
+                <span class="font-medium">Aspetto e Tema</span>
               </div>
               <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
             </button>
@@ -133,6 +196,72 @@ const handleDeleteTag = async (id) => {
               </div>
             </button>
           </div>
+        </div>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- VISTA: PROFILO E PASSWORD                  -->
+      <!-- ========================================== -->
+      <div v-else-if="currentView === 'profile'" class="animate-fade-in space-y-6">
+        
+        <!-- Info Utente Corrente (Se presenti nello store auth) -->
+        <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-4">
+          <div class="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-full flex items-center justify-center text-2xl font-bold">
+            {{ authStore.user?.email ? authStore.user.email.charAt(0).toUpperCase() : 'U' }}
+          </div>
+          <div>
+            <p class="text-sm text-slate-500 dark:text-slate-400 font-medium">Accesso effettuato come</p>
+            <p class="font-bold text-slate-900 dark:text-white">{{ authStore.user?.email || 'Utente' }}</p>
+          </div>
+        </div>
+
+        <!-- Modulo Cambio Password -->
+        <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
+          <h2 class="text-sm font-bold text-slate-900 dark:text-white mb-4">Cambia Password</h2>
+          
+          <form @submit.prevent="handleChangePassword" class="space-y-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Password Attuale</label>
+              <input 
+                v-model="passData.oldPassword" 
+                type="password" 
+                required
+                class="w-full bg-slate-50 dark:bg-slate-700 border-0 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-brand text-slate-700 dark:text-white"
+              >
+            </div>
+            
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Nuova Password</label>
+              <input 
+                v-model="passData.newPassword" 
+                type="password" 
+                required
+                class="w-full bg-slate-50 dark:bg-slate-700 border-0 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-brand text-slate-700 dark:text-white"
+              >
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Conferma Nuova Password</label>
+              <input 
+                v-model="passData.confirmPassword" 
+                type="password" 
+                required
+                class="w-full bg-slate-50 dark:bg-slate-700 border-0 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-brand text-slate-700 dark:text-white"
+              >
+            </div>
+
+            <button 
+              type="submit" 
+              :disabled="isChangingPassword"
+              class="w-full mt-2 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 py-3 rounded-xl font-bold shadow-sm hover:opacity-90 transition-all disabled:opacity-50"
+            >
+              {{ isChangingPassword ? 'Salvataggio...' : 'Aggiorna Password' }}
+            </button>
+          </form>
+
+          <!-- Messaggi di Feedback -->
+          <p v-if="profileError" class="text-red-500 text-sm mt-4 text-center font-medium">{{ profileError }}</p>
+          <p v-if="profileMsg" class="text-emerald-500 text-sm mt-4 text-center font-medium">{{ profileMsg }}</p>
         </div>
       </div>
 
