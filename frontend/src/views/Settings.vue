@@ -6,6 +6,10 @@ import { useHabitsStore } from '../stores/habits';
 import { useAuthStore } from '../stores/auth';
 import api from '../api/axios';
 
+// Importiamo l'Emoji Picker e il suo CSS
+import EmojiPicker from 'vue3-emoji-picker';
+import 'vue3-emoji-picker/css';
+
 const tagsStore = useTagsStore();
 const habitsStore = useHabitsStore();
 const authStore = useAuthStore();
@@ -17,14 +21,25 @@ const isDarkMode = ref(false);
 const newTag = ref({ name: '', color: '#4F46E5' });
 const tagErrorMsg = ref('');
 
-// --- LOGICA ABITUDINI CON EMOJI ---
-const emojisList = ['💧', '🏃‍♂️', '📚', '🧘‍♂️', '💊', '🥗', '💻', '🎨', '🧹', '🚶‍♂️', '💸', '🍳', '🌞', '🌙'];
+// --- LOGICA ABITUDINI CON EMOJI PICKER ---
 const newHabit = ref({ name: '', icon: '💧' });
 const habitErrorMsg = ref('');
+const showEmojiPicker = ref(false);
+
+const onSelectEmoji = (emoji) => {
+  newHabit.value.icon = emoji.i; // .i contiene l'emoji nativa
+  showEmojiPicker.value = false;
+};
 
 // Stato modifica abitudini
 const editingHabitId = ref(null);
 const editHabitData = ref({ name: '', icon: '' });
+const showEditEmojiPicker = ref(false);
+
+const onSelectEditEmoji = (emoji) => {
+  editHabitData.value.icon = emoji.i;
+  showEditEmojiPicker.value = false;
+};
 
 const passData = ref({ oldPassword: '', newPassword: '', confirmPassword: '' });
 const profileMsg = ref('');
@@ -68,7 +83,7 @@ const handleCreateHabit = async () => {
     if (!newHabit.value.name) return; 
     await habitsStore.createHabit(newHabit.value); 
     newHabit.value.name = ''; 
-    newHabit.value.icon = '💧'; // Reset emoji
+    newHabit.value.icon = '💧'; // Reset
   } catch (error) { habitErrorMsg.value = error.response?.data?.detail || 'Errore'; }
 };
 
@@ -77,10 +92,12 @@ const handleDeleteHabit = async (id) => { if (confirm("Vuoi eliminare questa abi
 const startEditingHabit = (habit) => {
   editingHabitId.value = habit.id;
   editHabitData.value = { name: habit.name, icon: habit.icon };
+  showEditEmojiPicker.value = false;
 };
 
 const cancelEditingHabit = () => {
   editingHabitId.value = null;
+  showEditEmojiPicker.value = false;
 };
 
 const handleUpdateHabit = async () => {
@@ -89,7 +106,7 @@ const handleUpdateHabit = async () => {
     await habitsStore.updateHabit(editingHabitId.value, editHabitData.value);
     editingHabitId.value = null;
   } catch (error) {
-    console.error("Errore durante l'aggiornamento dell'abitudine", error);
+    console.error("Errore durante l'aggiornamento", error);
   }
 };
 
@@ -181,7 +198,7 @@ const handleChangePassword = async () => {
       </div>
 
       <!-- ========================================== -->
-      <!-- VISTA: ABITUDINI                           -->
+      <!-- VISTA: ABITUDINI CON EMOJI PICKER          -->
       <!-- ========================================== -->
       <div v-else-if="currentView === 'habits'" class="animate-fade-in space-y-6">
         
@@ -190,20 +207,23 @@ const handleChangePassword = async () => {
           <form @submit.prevent="handleCreateHabit" class="flex flex-col gap-3">
             <label class="text-sm font-semibold text-slate-600 dark:text-slate-300">Nuova Abitudine</label>
             
-            <!-- Selettore Emoji Orizzontale -->
-            <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-none snap-x">
+            <div class="flex gap-3 relative">
+              <!-- Pulsante per aprire il Picker -->
               <button 
                 type="button" 
-                v-for="emoji in emojisList" :key="emoji"
-                @click="newHabit.icon = emoji"
-                class="w-10 h-10 shrink-0 rounded-xl text-xl transition-all flex items-center justify-center snap-center"
-                :class="newHabit.icon === emoji ? 'bg-green-100 dark:bg-green-900/40 border-2 border-green-500 shadow-sm' : 'bg-slate-50 dark:bg-slate-700 border border-slate-100 dark:border-slate-600 opacity-60 hover:opacity-100'"
+                @click="showEmojiPicker = !showEmojiPicker"
+                class="w-14 shrink-0 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl px-2 flex items-center justify-center text-2xl hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors shadow-inner"
               >
-                {{ emoji }}
+                {{ newHabit.icon }}
               </button>
-            </div>
+              
+              <!-- Componente Emoji Picker -->
+              <div v-if="showEmojiPicker" class="absolute top-14 left-0 z-50 shadow-2xl rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700">
+                <EmojiPicker :native="true" :theme="isDarkMode ? 'dark' : 'light'" @select="onSelectEmoji" />
+              </div>
 
-            <input v-model="newHabit.name" type="text" placeholder="Nome (es. Meditazione, Palestra...)" required class="w-full bg-slate-50 dark:bg-slate-700 border-0 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-brand text-slate-700 dark:text-white">
+              <input v-model="newHabit.name" type="text" placeholder="Nome (es. Palestra...)" required class="flex-1 bg-slate-50 dark:bg-slate-700 border-0 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-brand text-slate-700 dark:text-white">
+            </div>
             
             <button type="submit" class="w-full mt-2 bg-green-500 text-white py-2.5 rounded-xl font-medium shadow-sm hover:opacity-90 transition-all">Aggiungi Abitudine</button>
           </form>
@@ -223,7 +243,7 @@ const handleChangePassword = async () => {
                 <!-- Stato Lettura -->
                 <div v-if="editingHabitId !== habit.id" class="flex items-center justify-between">
                   <div class="flex items-center gap-3">
-                    <span class="text-xl w-8 h-8 bg-slate-50 dark:bg-slate-700 rounded-lg flex items-center justify-center">{{ habit.icon }}</span>
+                    <span class="text-xl w-10 h-10 bg-slate-50 dark:bg-slate-700 border border-slate-100 dark:border-slate-600 rounded-xl flex items-center justify-center">{{ habit.icon }}</span>
                     <span class="font-medium text-slate-700 dark:text-slate-200">{{ habit.name }}</span>
                   </div>
                   <div class="flex items-center gap-1">
@@ -238,23 +258,23 @@ const handleChangePassword = async () => {
 
                 <!-- Stato Modifica (Inline) -->
                 <div v-else class="animate-fade-in">
-                  <form @submit.prevent="handleUpdateHabit" class="flex flex-col gap-3">
-                    <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-none snap-x">
-                      <button 
-                        type="button" 
-                        v-for="emoji in emojisList" :key="emoji"
-                        @click="editHabitData.icon = emoji"
-                        class="w-10 h-10 shrink-0 rounded-xl text-xl transition-all flex items-center justify-center snap-center"
-                        :class="editHabitData.icon === emoji ? 'bg-brand/20 border-2 border-brand text-white shadow-sm' : 'bg-slate-50 dark:bg-slate-700 border border-slate-100 dark:border-slate-600 opacity-60'"
-                      >
-                        {{ emoji }}
-                      </button>
+                  <form @submit.prevent="handleUpdateHabit" class="flex gap-2 relative">
+                    
+                    <button 
+                      type="button" 
+                      @click="showEditEmojiPicker = !showEditEmojiPicker"
+                      class="w-12 shrink-0 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl flex items-center justify-center text-xl hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors shadow-inner"
+                    >
+                      {{ editHabitData.icon }}
+                    </button>
+                    
+                    <div v-if="showEditEmojiPicker" class="absolute top-12 left-0 z-50 shadow-2xl rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700">
+                      <EmojiPicker :native="true" :theme="isDarkMode ? 'dark' : 'light'" @select="onSelectEditEmoji" />
                     </div>
-                    <div class="flex gap-2">
-                      <input v-model="editHabitData.name" type="text" required class="flex-1 bg-slate-50 dark:bg-slate-700 border-0 rounded-xl px-4 py-2 focus:ring-2 focus:ring-brand text-slate-700 dark:text-white">
-                      <button type="submit" class="px-4 py-2 bg-brand text-white rounded-xl font-medium shadow-sm hover:opacity-90 transition-all">Salva</button>
-                      <button type="button" @click="cancelEditingHabit" class="px-4 py-2 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl font-medium shadow-sm hover:opacity-90 transition-all">✕</button>
-                    </div>
+
+                    <input v-model="editHabitData.name" type="text" required class="flex-1 min-w-0 bg-slate-50 dark:bg-slate-700 border-0 rounded-xl px-3 py-2 focus:ring-2 focus:ring-brand text-slate-700 dark:text-white">
+                    <button type="submit" class="px-3 py-2 bg-brand text-white rounded-xl font-medium shadow-sm hover:opacity-90 transition-all">✓</button>
+                    <button type="button" @click="cancelEditingHabit" class="px-3 py-2 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl font-medium shadow-sm hover:opacity-90 transition-all">✕</button>
                   </form>
                 </div>
 
@@ -372,14 +392,20 @@ const handleChangePassword = async () => {
 </template>
 
 <style scoped>
-.scrollbar-none::-webkit-scrollbar { display: none; }
-.scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
-
 .animate-fade-in {
   animation: fadeInRight 0.25s ease-out forwards;
 }
 @keyframes fadeInRight {
   from { opacity: 0; transform: translateX(10px); }
   to { opacity: 1; transform: translateX(0); }
+}
+
+/* Fix per nascondere scrollbar extra in alcune versioni del picker */
+:deep(.v3-emoji-picker) {
+  --ep-color-bg: #ffffff;
+}
+:deep(.dark .v3-emoji-picker) {
+  --ep-color-bg: #1e293b; /* bg-slate-800 */
+  --ep-color-border: #334155; /* border-slate-700 */
 }
 </style>
