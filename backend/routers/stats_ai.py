@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import extract
@@ -77,4 +77,81 @@ def get_ai_monthly_summary(
         raise HTTPException(
             status_code=500, 
             detail="Errore durante la generazione del resoconto AI con Groq."
+        )
+
+@router.get("/stats/ai-detailed-summary")
+def get_ai_detailed_summary(
+    period: str = "week",
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
+):
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="Chiave API di Groq non configurata.")
+    
+    client = Groq(api_key=api_key)
+    now = datetime.now()
+    
+    # Filtro in base al periodo selezionato
+    if period == "week":
+        start_date = now - timedelta(days=7)
+        entries = db.query(Entry).filter(
+            Entry.user_id == current_user.id,
+            Entry.entry_date >= start_date.date()
+        ).all()
+        period_str = "degli ultimi 7 giorni"
+    else:
+        # Mese
+        entries = db.query(Entry).filter(
+            Entry.user_id == current_user.id,
+            extract('month', Entry.entry_date) == now.month,
+            extract('year', Entry.entry_date) == now.year
+        ).all()
+        period_str = "di questo mese"
+
+    if len(entries) < 2:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Servono almeno 2 pensieri {period_str} per scrivere un riassunto narrativo."
+        )
+
+    notes_text = ""
+    for e in entries:
+        title_str = f" - Titolo: {e.title}" if e.title else ""
+        mood_str = f" (Umore: {e.mood_score}/5)" if e.mood_score else ""
+        notes_text += f"\nData {e.entry_date}{title_str}{mood_str}:\n{e.content}\n---"
+
+    prompt = f"""
+    Sei un abile biografo ed esperto analista del comportamento.
+    L'utente ti ha fornito i pensieri del suo diario personale {period_str}.
+    
+    Il tuo compito è scrivere un "Diario Narrativo": un resoconto discorsivo e profondo (circa 2-3 paragrafi) che racconti come è andato questo periodo, unendo i puntini tra i vari eventi e riflessioni in modo fluido e coinvolgente. Usa un tono empatico e diretto all'utente (es. "In questa settimana hai affrontato...").
+    
+    Pensieri {period_str}:
+    {notes_text}
+
+    Rispondi ESCLUSIVAMENTE con un oggetto JSON valido in italiano con questa struttura esatta:
+    {{
+      "title": "Un titolo suggestivo per questo capitolo della sua vita",
+      "narrative": "Il testo del racconto discorsivo lungo.",
+      "emotional_analysis": "Una breve analisi psicologica/emotiva complessiva (max 3 frasi)."
+    }}
+    """
+
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": "Sei un assistente che risponde solo in formato JSON."},
+                {"role": "user", "content": prompt}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.7,
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        print("Errore Groq:", e)
+        raise HTTPException(
+            status_code=500, 
+            detail="Errore durante la generazione del riassunto narrativo con AI."
         )
