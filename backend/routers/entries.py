@@ -1,3 +1,5 @@
+import os
+from groq import Groq
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import extract
@@ -17,26 +19,66 @@ router = APIRouter(
 
 # 1. CREATE (Crea)
 @router.post("/", response_model=schemas.EntryResponse, status_code=status.HTTP_201_CREATED)
-def create_entry(entry: schemas.EntryCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    # Rimuoviamo tag_ids e habit_ids per creare il record base
+def create_entry(
+    entry: schemas.EntryCreate, 
+    db: Session = Depends(get_db), 
+    current_user: models.User = Depends(get_current_user)
+):
+    # 1. Rimuoviamo tag_ids e habit_ids per creare il record base
     entry_data = entry.model_dump(exclude={"tag_ids", "habit_ids"})
+    
+    # --- NUOVA LOGICA: GENERAZIONE TITOLO AI ---
+    # Controlliamo se il titolo è assente o è solo testo vuoto/spazi
+    if not entry_data.get("title") or not entry_data["title"].strip():
+        try:
+            client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+            prompt = f"Genera un titolo molto breve (massimo 5 parole) in italiano per questo pensiero di diario. Restituisci SOLO il titolo testuale, niente virgolette, niente punteggiatura finale o introduzioni:\n\n{entry_data['content']}"
+            
+            chat_completion = client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": "Sei un assistente specializzato nel creare titoli super concisi ed emozionali per diari personali."},
+                    {"role": "user", "content": prompt}
+                ],
+                model="llama3-8b-8192", # Usiamo il modello 8b che è il più veloce per compiti semplici
+                max_tokens=20,
+                temperature=0.6
+            )
+            # Puliamo il titolo da eventuali virgolette aggiunte dall'AI
+            generated_title = chat_completion.choices[0].message.content.strip().replace('"', '').replace("'", "")
+            entry_data["title"] = generated_title
+        except Exception as e:
+            print(f"Errore durante la generazione del titolo AI: {e}")
+            entry_data["title"] = "Pensiero del giorno" # Fallback sicuro in caso l'API di Groq faccia i capricci
+    # -------------------------------------------
+
+    # 2. Creiamo il record base del pensiero
     new_entry = models.Entry(**entry_data, user_id=current_user.id)
     
+    # 3. Gestione Categorie (Tag)
     if entry.tag_ids:
-        tags = db.query(models.Tag).filter(models.Tag.id.in_(entry.tag_ids), models.Tag.user_id == current_user.id).all()
+        tags = db.query(models.Tag).filter(
+            models.Tag.id.in_(entry.tag_ids),
+            models.Tag.user_id == current_user.id
+        ).all()
         if len(tags) != len(set(entry.tag_ids)):
             raise HTTPException(status_code=400, detail="Uno o più tag non sono validi")
         new_entry.tags = tags
 
+    # 4. Gestione Abitudini (Habits)
     if entry.habit_ids:
-        habits = db.query(models.Habit).filter(models.Habit.id.in_(entry.habit_ids), models.Habit.user_id == current_user.id).all()
+        habits = db.query(models.Habit).filter(
+            models.Habit.id.in_(entry.habit_ids),
+            models.Habit.user_id == current_user.id
+        ).all()
         if len(habits) != len(set(entry.habit_ids)):
             raise HTTPException(status_code=400, detail="Una o più abitudini non sono valide")
         new_entry.habits = habits
 
+    # Salvataggio nel Database
     db.add(new_entry)
     db.commit()
     db.refresh(new_entry)
+    
     return new_entry
 
 # 2. READ ALL (Leggi lista filtrata)

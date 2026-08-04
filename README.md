@@ -9,7 +9,7 @@ MindLog è un'applicazione web moderna e reattiva stilizzata in formato Progress
 ### **Backend**
 *   **Framework:** FastAPI (Python 3.10+)
 *   **Database ORM:** SQLAlchemy
-*   **Database Engine:** SQLite (predefinito, scalabile a PostgreSQL)
+*   **Database Engine:** PostgreSQL
 *   **Autenticazione:** OAuth2 con Password Flow e JWT (JSON Web Tokens)
 *   **Intelligenza Artificiale:** Groq API (Modello Llama 3)
 *   **CORS Middleware:** Abilitato per comunicazione sicura tra origini
