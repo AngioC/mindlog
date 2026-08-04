@@ -33,6 +33,8 @@ class User(Base):
     entries: Mapped[List["Entry"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     tags: Mapped[List["Tag"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     habits: Mapped[List["Habit"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    medications: Mapped[List["Medication"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    medication_logs: Mapped[List["MedicationLog"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 class Entry(Base):
     __tablename__ = "entries"
@@ -74,3 +76,30 @@ class Habit(Base):
 
     user: Mapped["User"] = relationship(back_populates="habits")
     entries: Mapped[List["Entry"]] = relationship(secondary=entry_habits, back_populates="habits")
+
+class Medication(Base):
+    __tablename__ = "medications"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(100))
+    icon: Mapped[Optional[str]] = mapped_column(String(10), default="💊") 
+    daily_doses: Mapped[int] = mapped_column(default=1) # Es: 3 volte al giorno
+
+    # Relazioni
+    user: Mapped["User"] = relationship(back_populates="medications")
+    logs: Mapped[List["MedicationLog"]] = relationship(back_populates="medication", cascade="all, delete-orphan")
+
+
+class MedicationLog(Base):
+    __tablename__ = "medication_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    medication_id: Mapped[int] = mapped_column(ForeignKey("medications.id", ondelete="CASCADE"))
+    date: Mapped[date] = mapped_column(Date, index=True) # Es: 2026-08-04
+    taken_count: Mapped[int] = mapped_column(default=0) # Quante ne ha prese oggi (es. 2 su 3)
+
+    # Relazioni
+    user: Mapped["User"] = relationship(back_populates="medication_logs")
+    medication: Mapped["Medication"] = relationship(back_populates="logs")

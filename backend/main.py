@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware  # <- 1. Importa il middleware
 import models
 from database import engine
-from routers import auth, entries, tags, stats_ai, habits
+from routers import auth, entries, tags, stats_ai, habits, medications
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -28,6 +28,7 @@ app.include_router(entries.router)
 app.include_router(stats_ai.router)
 app.include_router(tags.router)
 app.include_router(habits.router)
+app.include_router(medications.router)
 
 @app.get("/", tags=["Health"])
 def read_root():

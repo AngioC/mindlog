@@ -91,3 +91,38 @@ class PasswordChange(BaseModel):
     old_password: str
     new_password: str
 
+# --- SCHEMI MEDICATIONS ---
+class MedicationBase(BaseModel):
+    name: str
+    icon: Optional[str] = "💊"
+    daily_doses: int
+
+class MedicationCreate(MedicationBase):
+    pass
+
+class MedicationUpdate(BaseModel):
+    name: Optional[str] = None
+    icon: Optional[str] = None
+    daily_doses: Optional[int] = None
+
+class MedicationResponse(MedicationBase):
+    id: int
+    class Config:
+        from_attributes = True
+
+# --- SCHEMI LOGS ---
+class MedicationLogUpdate(BaseModel):
+    taken_count: int
+
+class MedicationLogResponse(BaseModel):
+    id: int
+    medication_id: int
+    date: date
+    taken_count: int
+    class Config:
+        from_attributes = True
+
+# Uno schema speciale per la Dashboard che unisce il farmaco al log di oggi
+class MedicationTodayResponse(BaseModel):
+    medication: MedicationResponse
+    taken_count: int # 0 se non ci sono log oggi

@@ -7,7 +7,8 @@ const routes = [
   { path: '/', name: 'Dashboard', component: () => import('../views/Dashboard.vue'), meta: { requiresAuth: true } },
   { path: '/calendar', name: 'Calendar', component: () => import('../views/Calendar.vue'), meta: { requiresAuth: true } },
   { path: '/stats', name: 'Stats', component: () => import('../views/Stats.vue'), meta: { requiresAuth: true } },
-  { path: '/settings', name: 'Settings', component: () => import('../views/Settings.vue'), meta: { requiresAuth: true } }
+  { path: '/settings', name: 'Settings', component: () => import('../views/Settings.vue'), meta: { requiresAuth: true } },
+  { path: '/routine', name: 'Routine', component: () => import('../views/Routine.vue'), meta: { requiresAuth: true } }
 ];
 
 const router = createRouter({
