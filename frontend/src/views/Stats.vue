@@ -2,12 +2,17 @@
 import { ref, computed, onMounted } from 'vue';
 import api from '../api/axios';
 import { useEntriesStore } from '../stores/entries';
-import { Line } from 'vue-chartjs';
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
+import { useMedicationsStore } from '../stores/medications';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
+// Importiamo Line e Bar da vue-chartjs
+import { Line, Bar } from 'vue-chartjs'; 
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler } from 'chart.js';
+
+// Registriamo anche BarElement
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler);
 
 const entriesStore = useEntriesStore();
+const medicationsStore = useMedicationsStore();
 const activeTab = ref('overview'); 
 
 // STATO AI SUMMARY
@@ -18,6 +23,9 @@ const detailedPeriod = ref('week');
 const detailedSummary = ref(null);
 const isLoadingDetailed = ref(false);
 const detailedError = ref('');
+
+// STATO STORICO ROUTINE
+const historyPeriod = ref(7); // Default 7 giorni
 
 const moods = [
   { score: 1, emoji: '😢', label: 'Triste' },
@@ -31,7 +39,15 @@ onMounted(() => {
   if (entriesStore.entries.length === 0) {
     entriesStore.fetchEntries();
   }
+  // Carica lo storico iniziale della routine (7 giorni)
+  medicationsStore.fetchHistory(historyPeriod.value);
 });
+
+// Cambia periodo storico routine e ricarica i dati
+const changeHistoryPeriod = async (days) => {
+  historyPeriod.value = days;
+  await medicationsStore.fetchHistory(days);
+};
 
 const fetchAiSummary = async () => {
   try {
@@ -107,7 +123,7 @@ const getHeatmapColor = (score, isEmpty) => {
   return colors[score] || 'bg-brand';
 };
 
-// --- DATI GRAFICI ---
+// --- DATI GRAFICI UMORE ---
 const recentEntriesWithMood = computed(() => {
   return [...entriesStore.entries].filter(e => e.mood_score).sort((a, b) => new Date(a.entry_date) - new Date(b.entry_date)).slice(-30);
 });
@@ -132,6 +148,45 @@ const chartOptions = {
   plugins: { legend: { display: false } }
 };
 
+// --- DATI GRAFICI ROUTINE (BAR CHART) ---
+const medicationChartData = computed(() => {
+  return {
+    labels: medicationsStore.historyStats.map(s => {
+      const d = new Date(s.date);
+      return `${d.getDate()}/${d.getMonth() + 1}`;
+    }),
+    datasets: [{
+      label: 'Completamento (%)',
+      data: medicationsStore.historyStats.map(s => s.percentage),
+      backgroundColor: 'rgba(244, 63, 94, 0.8)', // Colore rose-500 in tema con i farmaci
+      borderRadius: 4,
+      barThickness: historyPeriod.value === 7 ? 20 : 6 // Barre più larghe per la settimana
+    }]
+  };
+});
+
+const medicationChartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  scales: {
+    y: {
+      min: 0,
+      max: 100,
+      ticks: { stepSize: 25, callback: (v) => v + '%' },
+      grid: { color: 'rgba(150, 150, 150, 0.1)' }
+    },
+    x: { grid: { display: false } }
+  },
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      callbacks: {
+        label: (ctx) => ` Completato: ${ctx.raw}%`
+      }
+    }
+  }
+};
+
 const currentMonthEntries = computed(() => {
   const now = new Date(); return entriesStore.entries.filter(e => { const d = new Date(e.entry_date); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); });
 });
@@ -151,7 +206,7 @@ const dominantMood = computed(() => {
   return moods.find(m => m.score === maxScore);
 });
 
-// --- NUOVA LOGICA: TOP ABITUDINI MESE CORRENTE ---
+// --- TOP ABITUDINI MESE CORRENTE ---
 const topHabitsMonth = computed(() => {
   const habitCounts = {};
   currentMonthEntries.value.forEach(entry => {
@@ -166,16 +221,15 @@ const topHabitsMonth = computed(() => {
   return Object.keys(habitCounts)
     .map(name => ({ name, icon: habitCounts[name].icon, count: habitCounts[name].count }))
     .sort((a, b) => b.count - a.count)
-    .slice(0, 3); // Prendi le top 3
+    .slice(0, 3);
 });
 
 
-// --- NUOVA LOGICA: CORRELAZIONE TAG & ABITUDINI vs UMORE ---
+// --- CORRELAZIONE TAG & ABITUDINI vs UMORE ---
 const categoryMoodCorrelation = computed(() => {
   const stats = {};
   entriesStore.entries.forEach(entry => {
     if (entry.mood_score) {
-      // Calcolo per i Tag
       if (entry.tags) {
         entry.tags.forEach(tag => {
           const key = `tag_${tag.name}`;
@@ -184,7 +238,6 @@ const categoryMoodCorrelation = computed(() => {
           stats[key].count += 1;
         });
       }
-      // Calcolo per le Abitudini
       if (entry.habits) {
         entry.habits.forEach(habit => {
           const key = `habit_${habit.name}`;
@@ -201,7 +254,7 @@ const categoryMoodCorrelation = computed(() => {
       ...item,
       avg: (item.sum / item.count).toFixed(1)
     }))
-    .filter(t => t.count >= 2) // Mostriamo solo se usati almeno 2 volte
+    .filter(t => t.count >= 2)
     .sort((a, b) => b.avg - a.avg); 
 });
 </script>
@@ -250,7 +303,7 @@ const categoryMoodCorrelation = computed(() => {
           </div>
         </section>
 
-        <!-- Nuovo blocco Abitudini Mese -->
+        <!-- Blocco Abitudini Mese -->
         <section class="bg-white dark:bg-slate-800 p-5 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700">
           <h2 class="text-sm font-bold mb-4">Abitudini più frequenti</h2>
           <div v-if="topHabitsMonth.length === 0" class="text-[0.8rem] text-slate-500 text-center py-2">
@@ -282,6 +335,7 @@ const categoryMoodCorrelation = computed(() => {
       <!-- TAB 2: ANDAMENTO -->
       <div v-show="activeTab === 'trends'" class="space-y-6 animate-fade-in">
         
+        <!-- Grafico Umore (Line Chart) -->
         <section class="bg-white dark:bg-slate-800 p-5 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700">
           <h2 class="text-sm font-bold text-slate-900 dark:text-white mb-2">Andamento Umore</h2>
           <p class="text-xs text-slate-500 mb-6">Analisi delle fluttuazioni del tuo umore basata sugli ultimi 30 pensieri.</p>
@@ -289,6 +343,24 @@ const categoryMoodCorrelation = computed(() => {
             Scrivi almeno 2 pensieri con umore per generare il grafico.
           </div>
           <div v-else class="h-72 w-full"><Line :data="chartData" :options="chartOptions" /></div>
+        </section>
+
+        <!-- NUOVO: Grafico Costanza Routine (Bar Chart) -->
+        <section class="bg-white dark:bg-slate-800 p-5 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700">
+          <div class="flex items-center justify-between mb-2">
+            <h2 class="text-sm font-bold text-slate-900 dark:text-white">Costanza Routine</h2>
+            
+            <div class="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl shadow-inner border border-slate-200 dark:border-slate-700">
+              <button @click="changeHistoryPeriod(7)" class="text-[0.65rem] font-bold px-2.5 py-1 rounded-lg transition-all" :class="historyPeriod === 7 ? 'bg-white dark:bg-slate-700 text-rose-500 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'">7 gg</button>
+              <button @click="changeHistoryPeriod(30)" class="text-[0.65rem] font-bold px-2.5 py-1 rounded-lg transition-all" :class="historyPeriod === 30 ? 'bg-white dark:bg-slate-700 text-rose-500 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'">30 gg</button>
+            </div>
+          </div>
+          <p class="text-xs text-slate-500 mb-6">Percentuale di completamento dei tuoi promemoria giornalieri.</p>
+          
+          <div v-if="medicationsStore.historyStats.length === 0" class="text-center py-10 text-slate-400 text-sm bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
+            Nessun dato disponibile per il periodo selezionato.
+          </div>
+          <div v-else class="h-60 w-full"><Bar :data="medicationChartData" :options="medicationChartOptions" /></div>
         </section>
 
         <!-- Correlazione combinata Tag & Abitudini -->
@@ -303,7 +375,6 @@ const categoryMoodCorrelation = computed(() => {
           <div v-else class="space-y-3">
             <div v-for="item in categoryMoodCorrelation" :key="item.name" class="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50">
               <div class="flex items-center gap-3">
-                <!-- Visivo: Pallino colore (Tag) o Emoji (Abitudine) -->
                 <div v-if="item.type === 'tag'" class="w-4 h-4 rounded-full shadow-sm" :style="{ backgroundColor: item.visual }"></div>
                 <div v-else class="w-5 h-5 flex items-center justify-center text-lg">{{ item.visual }}</div>
                 

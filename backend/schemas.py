@@ -113,6 +113,7 @@ class MedicationResponse(MedicationBase):
 # --- SCHEMI LOGS ---
 class MedicationLogUpdate(BaseModel):
     taken_count: int
+    target_date: Optional[date] = None # NUOVO: Permette di aggiornare giorni passati
 
 class MedicationLogResponse(BaseModel):
     id: int
