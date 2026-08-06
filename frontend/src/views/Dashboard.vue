@@ -109,14 +109,26 @@ const saveEdit = async () => { if (!editEntryData.value.content) return; await e
 const handleDelete = async (id) => { if (confirm("Vuoi davvero eliminare questo pensiero?")) await entriesStore.deleteEntry(id); };
 
 const filteredEntries = computed(() => {
-  return entriesStore.entries.filter(entry => {
+  const result = entriesStore.entries.filter(entry => {
     const query = searchQuery.value.toLowerCase().trim();
     const matchesQuery = !query || (entry.title && entry.title.toLowerCase().includes(query)) || entry.content.toLowerCase().includes(query);
     const matchesTag = !selectedTagFilter.value || (entry.tags && entry.tags.some(t => t.id === selectedTagFilter.value));
     const matchesMood = !selectedMoodFilter.value || entry.mood_score === selectedMoodFilter.value;
     return matchesQuery && matchesTag && matchesMood;
   });
+
+  return result.sort((a, b) => {
+    const dateA = new Date(a.entry_date).getTime();
+    const dateB = new Date(b.entry_date).getTime();
+    
+    if (dateA !== dateB) {
+      return dateB - dateA;
+    }
+    
+    return b.id - a.id;
+  });
 });
+
 const isFilterActive = computed(() => searchQuery.value.trim() !== '' || selectedTagFilter.value !== null || selectedMoodFilter.value !== null);
 const activeFiltersCount = computed(() => (searchQuery.value.trim() !== '' ? 1 : 0) + (selectedTagFilter.value !== null ? 1 : 0) + (selectedMoodFilter.value !== null ? 1 : 0));
 const clearFilters = () => { searchQuery.value = ''; selectedTagFilter.value = null; selectedMoodFilter.value = null; };

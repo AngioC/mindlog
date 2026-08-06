@@ -83,11 +83,13 @@ def create_entry(
 
 # 2. READ ALL (Leggi lista filtrata)
 @router.get("/", response_model=List[schemas.EntryResponse])
+@router.get("/", response_model=List[schemas.EntryResponse])
 def read_entries(year: Optional[int] = None, month: Optional[int] = None, skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     query = db.query(models.Entry).filter(models.Entry.user_id == current_user.id)
     if year: query = query.filter(extract('year', models.Entry.entry_date) == year)
     if month: query = query.filter(extract('month', models.Entry.entry_date) == month)
-    return query.order_by(models.Entry.entry_date.desc()).offset(skip).limit(limit).all()
+    
+    return query.order_by(models.Entry.entry_date.desc(), models.Entry.created_at.desc()).offset(skip).limit(limit).all()
 
 # 3. READ ONE (Leggi un singolo pensiero specifico)
 @router.get("/{entry_id}", response_model=schemas.EntryResponse)
